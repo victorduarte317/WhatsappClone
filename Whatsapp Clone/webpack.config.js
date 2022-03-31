@@ -6,13 +6,17 @@ const path = require('path');
 
 module.exports = {
     // qual o arquivo de entrada
-    entry: './src/app.js',
+    entry: {
+        app: './src/app.js',
+        'pdf.worker': 'pdfjs-dist/build/pdf.worker.entry.js'
+    },
+
 
     // como o webpack vai disponibilizar os arquivos depois de empacotar
 
     output: {
-        filename: 'bundle.js',
-        path: path.resolve(__dirname, '/dist'), // a partir do diretório que o arquivo webpack tá salvo no disco, traz o /dist
+        filename: '[name].bundle.js',
+        path: path.join(__dirname, 'dist'), // a partir do diretório que o arquivo webpack tá salvo no disco, traz o /dist
         publicPath: 'dist' // pasta publica, de distribuiçao
     }
 
