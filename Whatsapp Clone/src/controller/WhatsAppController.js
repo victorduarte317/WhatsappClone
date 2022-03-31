@@ -1,6 +1,7 @@
 import {Format} from './../util/Format';
 import {CameraController} from './CameraController';
-
+import {MicrophoneController} from './MicrophoneController';
+import {DocumentPreviewController} from './DocumentPreviewController';
 export class WhatsAppController{ // vai exportar essa classe pro app.js 
 
     constructor() {
@@ -299,12 +300,59 @@ export class WhatsAppController{ // vai exportar essa classe pro app.js
             this.closeAllMainPanels();
             this.el.panelDocumentPreview.addClass('open');
             this.el.panelDocumentPreview.css({
-                'height':'calc(100% - 120px);'
+                height: 'calc(100% - 120px);'
             });
             this.el.inputDocument.click();
         });
 
-        this.el.inputDocument
+        this.el.inputDocument.on('change', (e)=>{
+
+            if (this.el.inputDocument.files.length){
+
+                this.el.panelDocumentPreview.css({
+                    height: '1%;'
+                });
+
+                let file = this.el.inputDocument.files[0];
+
+                this._documentPreviewController = new DocumentPreviewController(file);
+
+                this._documentPreviewController.getPreviewData().then(result=>{
+
+                    this.el.imgPanelDocumentPreview.src = result.src;
+                    this.el.infoPanelDocumentPreview.innerHTML = result.info;
+                    this.el.imagePanelDocumentPreview.show();
+                    this.el.filePanelDocumentPreview.hide();
+
+                    this.el.panelDocumentPreview.css({
+                        height: 'calc(100% - 120px);'
+                    });
+
+                }).catch((err)=>{
+
+                    this.el.panelDocumentPreview.css({
+                        height: 'calc(100% - 120px);'
+                    });
+
+                    switch (file.type){
+                        //case 'application/vnd.ms excel':
+                        //case 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':
+                        case 'image/jpeg': // por motivos de teste (e eu nao ter documento xls salvos no pc do estagio)
+                        case 'image/jpg':
+                        case 'image/png': 
+                        this.el.iconPanelDocumentPreview.className = 'xls'
+                        break;
+
+                        default: 
+                            this.el.iconPanelDocumentPreview.className = 'jcxhw icon-doc-generic'
+                        break;
+                    }
+                    this.el.filenamePanelDocumentPreview.innerHTML = file.name;
+                    this.el.imagePanelDocumentPreview.hide();
+                    this.el.filePanelDocumentPreview.show();
+                });
+            }
+        });
 
         this.el.btnClosePanelDocumentPreview.on('click', (e)=>{
 
@@ -334,12 +382,29 @@ export class WhatsAppController{ // vai exportar essa classe pro app.js
 
             this.el.recordMicrophone.show();
             this.el.btnSendMicrophone.hide();
-            this.startRecordMicrophoneTimer();
+
+            this._microphoneController = new MicrophoneController();
+
+            // quando o audio toca, configurando evento
+            this._microphoneController.on('ready', (musica) =>{
+
+                console.log('ready event');
+
+                this._microphoneController.startRecorder();
+
+            });
+
+            this._microphoneController.on('recordtimer', timer=>{
+
+                this.el.recordMicrophoneTimer.innerHTML = Format.toTime(timer);
+
+            });
 
         });
 
         this.el.btnCancelMicrophone.on('click', (e)=>{
         
+            this._microphoneController.stopRecorder();
             this.defaultMicBar();
 
 
@@ -347,6 +412,7 @@ export class WhatsAppController{ // vai exportar essa classe pro app.js
 
         this.el.btnFinishMicrophone.on('click', (e)=>{
 
+            this._microphoneController.stopRecorder();
             this.defaultMicBar();  
 
         });
@@ -471,25 +537,10 @@ export class WhatsAppController{ // vai exportar essa classe pro app.js
 
     } // fecha initEvents
 
-    // método pra colocar o timer dos audios do whatsapp
-    startRecordMicrophoneTimer(){
-
-        let start = Date.now(); 
-
-        // variavel privada recebe setInterval - metodo nativo do js
-        this._recordMicrophoneInterval = setInterval(()=>{
-
-            this.el.recordMicrophoneTimer.innerHTML = Format.toTime(Date.now() - start);
-
-        }, 100); // a cada 100ms
-    }
-
     defaultMicBar() {
 
         this.el.recordMicrophone.hide();
         this.el.btnSendMicrophone.show();
-        clearInterval(this._recordMicrophoneInterval);
-
     }
 
     closeAllMainPanels() {
