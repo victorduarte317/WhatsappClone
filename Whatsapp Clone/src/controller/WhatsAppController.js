@@ -4,6 +4,7 @@ import {MicrophoneController} from './MicrophoneController';
 import {DocumentPreviewController} from './DocumentPreviewController';
 import {Firebase} from '../util/Firebase';
 import { User } from '../model/User';
+import FlagDependencyExportsPlugin from 'webpack/lib/FlagDependencyExportsPlugin';
 
 export class WhatsAppController{ // vai exportar essa classe pro app.js 
 
@@ -143,6 +144,24 @@ export class WhatsAppController{ // vai exportar essa classe pro app.js
             img.show();
 
         }
+
+        div.on('click', e=>{
+
+            this.el.activeName.innerHTML = contact.name;
+            this.el.activeStatus.innerHTML = contact.status;
+
+            if (contact.photo) {
+                let img = this.el.activePhoto;
+                img.src = contact.photo;
+                img.show();
+            }
+
+            this.el.home.hide();
+            this.el.main.css({
+                display: 'flex'
+            })
+
+        });
 
         this.el.contactsMessagesList.appendChild(div);
 
