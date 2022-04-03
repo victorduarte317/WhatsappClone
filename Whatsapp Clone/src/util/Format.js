@@ -33,4 +33,21 @@ export class Format {
         }
 
     }
+    
+    static dateToTime(date, locale = 'pt-br') {
+
+        return date.toLocaleTimeString((this._locale), {
+
+            hours: '2-digit',
+            minutes: '2-digit'
+
+        });
+    }
+
+    static timeStampToTime(timeStamp) {
+
+        // se o timeStamp do firebase existir e tiver uma função "toDate" , retorna a formatação. Se não, não retorna hora nenhuma.
+        return (timeStamp && typeof timeStamp.toDate === 'function') ? Format.dateToTime(timeStamp.toDate()) : ''
+
+    }
 }
