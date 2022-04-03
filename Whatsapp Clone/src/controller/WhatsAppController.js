@@ -4,7 +4,9 @@ import {MicrophoneController} from './MicrophoneController';
 import {DocumentPreviewController} from './DocumentPreviewController';
 import {Firebase} from '../util/Firebase';
 import { User } from '../model/User';
-import FlagDependencyExportsPlugin from 'webpack/lib/FlagDependencyExportsPlugin';
+import { Chat } from '../model/Chat';
+import { Message } from '../model/Message';
+
 
 export class WhatsAppController{ // vai exportar essa classe pro app.js 
 
@@ -147,19 +149,9 @@ export class WhatsAppController{ // vai exportar essa classe pro app.js
 
         div.on('click', e=>{
 
-            this.el.activeName.innerHTML = contact.name;
-            this.el.activeStatus.innerHTML = contact.status;
+            this.setActiveChat(contact);
 
-            if (contact.photo) {
-                let img = this.el.activePhoto;
-                img.src = contact.photo;
-                img.show();
-            }
-
-            this.el.home.hide();
-            this.el.main.css({
-                display: 'flex'
-            })
+            console.log('chatId', contact.chatId);
 
         });
 
@@ -173,6 +165,90 @@ export class WhatsAppController{ // vai exportar essa classe pro app.js
     this._user.getContacts();
 
 
+
+    }
+
+    // método responsável pela ativação do painel lateral de contatos
+    setActiveChat(contact) {
+
+        // se existir um contato ativo
+        if (this._activeContact) {
+            // pega a referência dele e zera o onSnapshot, pra não ficar stackando listener de diversas conversas.
+            Message.getRef(this._activeContact.chatId).onSnapshot(()=>{});
+        }
+
+        // guarda o contato ativo dentro do objeto activeContact
+        this._activeContact = contact;
+
+        this.el.activeName.innerHTML = contact.name;
+        this.el.activeStatus.innerHTML = contact.status;
+
+        if (contact.photo) {
+            let img = this.el.activePhoto;
+            img.src = contact.photo;
+            img.show();
+        }
+
+        this.el.home.hide();
+        this.el.main.css({
+            display: 'flex'
+        });
+
+        // limpa o conteudo do painel de mensagens
+        this.el.panelMessagesContainer.innerHTML = '';
+
+        // carregando a referencia da mensagem, ordenando os dados pela data em tempo real - com o onSnapshot, retornando docs.
+
+        Message.getRef(this._activeContact.chatId).orderBy('timestamp')
+        .onSnapshot((docs)=>{
+
+            // posição atual do scrollTop 
+            let scrollTop = this.el.panelMessagesContainer.scrollTop;
+            // limite do scroll
+            //pega o total do scroll necessário e subtrai pel total da área visível
+            let scrollTopMax = (this.el.panelMessagesContainer.scrollHeight - this.el.panelMessagesContainer.offsetHeight);
+
+            // identifica se a posição atual do scroll é maior ou igual ao valor máximo do scroll.
+            // se for, é preciso que o scroll encoste lá embaixo.
+            // se for menor, significa que o usuário colocou o scroll pra cima e ele não deve ser alterado.
+            let autoScroll = (scrollTop >= scrollTopMax);
+
+            docs.forEach((doc)=>{
+
+                let data = doc.data();
+                data.id = doc.id;
+
+                // se não tiver uma mensagem no painel
+                // o underline aqui é utilizado já que não se pode ter números como começo de ID.
+                // e como o firebase gera IDs que podem começar com número, isso já é evitado pelo underline.
+                if (!this.el.panelMessagesContainer.querySelector('#_' + data.id)) {
+                    
+                    let message = new Message();
+
+                    message.fromJSON(data);
+
+                    // verifica se a mensagem veio de "mim"
+                    let me = (data.from === this._user.email)
+                    // passa o true pro método
+                    let view = message.getViewElement(me);
+                    // e passa o elemento pra cá, exibindo a mensagem na tela
+                    this.el.panelMessagesContainer.appendChild(view);
+
+                }
+                
+
+            });
+
+            if (autoScroll) {
+
+                this.el.panelMessagesContainer.scrollTop = (
+                this.el.panelMessagesContainer.scrollHeight - this.el.panelMessagesContainer.offsetHeight
+                );
+            } else {
+                this.el.panelMessagesContainer.scrollTop = scrollTop; 
+            }
+
+        });
 
     }
 
@@ -300,6 +376,21 @@ export class WhatsAppController{ // vai exportar essa classe pro app.js
 
         this.el.myPhoto.on('click', e=>{
 
+            // quando apertar a tecla
+            this.el.inputSearchContacts.on('keyup', (e)=>{
+
+               // verifica se o comprimento do valor é maior que 0
+               // ou seja, se o usuário digitar algo na barra
+               if(this.el.inputSearchContacts.value.length > 0) {
+                    this.el.inputSearchContactsPlaceholder.hide(); // esconde o texto de placeholder
+               } else {
+                    this.el.inputSearchContactsPlaceholder.show(); 
+               }
+
+               this._user.getContacts(this.el.inputSearchContacts.value); // vai chamar os contatos passando o conteúdo digitado na barra de pesquisa
+
+            });
+
             this.closeAllLeftPanels();
             // é importante dar o show pq a classe closeAllLeftPanels vai esconder quem tiver com show.
             // css tem uma classe pra abrir os menus
@@ -383,12 +474,27 @@ export class WhatsAppController{ // vai exportar essa classe pro app.js
 
                 // se recuperou um data.name, já validou o retorno do usuario
                 if (data.name) {
-                    this._user.addContact(contact).then(()=>{ // recebe a promise do return de addContact
 
-                        this.el.btnClosePanelAddContact.click();
-                        console.info('Contato foi adicionado.')
+                    // cria o chat antes de criar o contato. Se o chat já existir, retorna o ID do mesmo. 
+                    Chat.createIfNotExists(this._user.email, contact.email).then(chat =>{ // quando tiver os dados do chat, cria o contato
 
-                    });
+                        contact.chatId = chat.id; // esse "chat.id" seria a referencia do doc do firebase, o valor dele está sendo atribuído ao - ainda nao criado - chatId do contato. "chat" de chat.id é o parametro da funçao.
+
+                        this._user.chatId = chat.id; // como a conversa existe de A pra B, também existe de B pra A.
+
+                        contact.addContact(this._user); // vai fazer o merge das informações, se o contato não existir vai ser adicionado, se existir vai adicionar o chatID.
+
+                        this._user.addContact(contact).then(()=>{ // recebe a promise do return de addContact
+
+                            this.el.btnClosePanelAddContact.click();
+                            console.info('Contato foi adicionado.')
+    
+                        });
+
+
+                    }); 
+
+                    
                 } else {
                     console.error('Usuário não foi encontrado.');
                 }
@@ -647,8 +753,16 @@ export class WhatsAppController{ // vai exportar essa classe pro app.js
 
         this.el.btnSend.on('click', (e)=>{
 
-            console.log(this.el.inputText.innerHTML);
+            // passa o id do contato ativo, o email do usuario, o tipo da mensagem e a mensagem em si pro método estático "send"
+            Message.send(
+                this._activeContact.chatId, 
+                this._user.email,
+                'text',
+                this.el.inputText.innerHTML
+            );
 
+            this.el.inputText.innerHTML = ''; // limpa o campo depois do envio da mensagem
+            this.el.panelEmojis.removeClass('open'); // se enviar um emoji, fecha o painel do emoji no envio da mensagem também
         });
     
 
