@@ -16,6 +16,9 @@ export class User extends Model {
 
     get photo() { return this._data.photo; }
     set photo(value) { this._data.photo = value; }
+
+    get chatId() { return this._data.chatId; }
+    set chatId(value) { this._data.chatId = value; }
     
     getById(id) {
 
@@ -78,11 +81,11 @@ export class User extends Model {
             .set(contact.toJSON()); // usa o set pra salvar o contato - passando um objeto
     }
 
-    getContacts() {
+    getContacts(filter = '') { // pode ser que receba um filtro ou nao, ou seja, pode ser que o usuario digite lá ou nao.
         return new Promise((s, r)=>{
 
-            // o snapshot pra manter a ouvidoria
-            User.getContactsRef(this.email).onSnapshot((docs)=>{
+            // o snapshot pra manter a ouvidoria, o where pra verificação e filtro do nome
+            User.getContactsRef(this.email).where('name', '>=', filter).onSnapshot((docs)=>{
 
                 let contacts = []; // array dos contatos
 
