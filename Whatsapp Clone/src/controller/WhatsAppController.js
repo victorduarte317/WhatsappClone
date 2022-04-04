@@ -199,7 +199,7 @@ export class WhatsAppController{ // vai exportar essa classe pro app.js
 
         // carregando a referencia da mensagem, ordenando os dados pela data em tempo real - com o onSnapshot, retornando docs.
 
-        Message.getRef(this._activeContact.chatId).orderBy('timestamp')
+        Message.getRef(this._activeContact.chatId).orderBy('timeStamp')
         .onSnapshot((docs)=>{
 
             // posição atual do scrollTop 
@@ -218,25 +218,43 @@ export class WhatsAppController{ // vai exportar essa classe pro app.js
                 let data = doc.data();
                 data.id = doc.id;
 
+                let message = new Message();
+
+                message.fromJSON(data);
+
+                // verifica se a mensagem verificou do meu email
+                let me = (data.from === this._user.email);
+
                 // se não tiver uma mensagem no painel
                 // o underline aqui é utilizado já que não se pode ter números como começo de ID.
                 // e como o firebase gera IDs que podem começar com número, isso já é evitado pelo underline.
                 if (!this.el.panelMessagesContainer.querySelector('#_' + data.id)) {
-                    
-                    let message = new Message();
 
-                    message.fromJSON(data);
+                    // se nao
+                    if (!me) {
 
-                    // verifica se a mensagem veio de "mim"
-                    let me = (data.from === this._user.email)
+                        // referencia da mensagem
+                        doc.ref.set({
+                            status:'read' // seta a mensagem como lida
+                        }, {
+                            merge: true // da o merge pra nao perder os dados
+                        });
+
+                    }
                     // passa o true pro método
                     let view = message.getViewElement(me);
                     // e passa o elemento pra cá, exibindo a mensagem na tela
                     this.el.panelMessagesContainer.appendChild(view);
 
-                }
-                
+                } else if (me){ // tratando o caso da imagem ja estar na tela e receber a atualizaçao de status
 
+                    let msgEl = this.el.panelMessagesContainer.querySelector('#_' + data.id); // pega a mensagem que ta na tela
+
+                    msgEl.querySelector('.message-status').innerHTML = message.getStatusViewElement().outerHTML;
+                    // vai pegar o status atual da mensagem pelo querySelector e alterar com o innerHTML
+                    // porem, o innerHTML espera uma string e o getStatus vai retornar objeto junto
+                    // então, o outerHTML é utilizado pra pegar os elementos além das strings
+                }
             });
 
             if (autoScroll) {
@@ -374,22 +392,22 @@ export class WhatsAppController{ // vai exportar essa classe pro app.js
 
     initEvents() {
 
+        // quando apertar a tecla
+        this.el.inputSearchContacts.on('keyup', (e)=>{
+
+            // verifica se o comprimento do valor é maior que 0
+            // ou seja, se o usuário digitar algo na barra
+            if(this.el.inputSearchContacts.value.length > 0) {
+                 this.el.inputSearchContactsPlaceholder.hide(); // esconde o texto de placeholder
+            } else {
+                 this.el.inputSearchContactsPlaceholder.show(); 
+            }
+
+            this._user.getContacts(this.el.inputSearchContacts.value); // vai chamar os contatos passando o conteúdo digitado na barra de pesquisa
+
+         });
+
         this.el.myPhoto.on('click', e=>{
-
-            // quando apertar a tecla
-            this.el.inputSearchContacts.on('keyup', (e)=>{
-
-               // verifica se o comprimento do valor é maior que 0
-               // ou seja, se o usuário digitar algo na barra
-               if(this.el.inputSearchContacts.value.length > 0) {
-                    this.el.inputSearchContactsPlaceholder.hide(); // esconde o texto de placeholder
-               } else {
-                    this.el.inputSearchContactsPlaceholder.show(); 
-               }
-
-               this._user.getContacts(this.el.inputSearchContacts.value); // vai chamar os contatos passando o conteúdo digitado na barra de pesquisa
-
-            });
 
             this.closeAllLeftPanels();
             // é importante dar o show pq a classe closeAllLeftPanels vai esconder quem tiver com show.
@@ -409,7 +427,6 @@ export class WhatsAppController{ // vai exportar essa classe pro app.js
                 this.el.panelAddContact.addClass('open');
             }, 300); // como o css nao ta tendo tempo pra fazer a animaçao de deslizar, é preciso setar
                     // um delay de 300ms.
-    
         }); 
 
         this.el.btnClosePanelEditProfile.on('click', e=>{
@@ -476,7 +493,7 @@ export class WhatsAppController{ // vai exportar essa classe pro app.js
                 if (data.name) {
 
                     // cria o chat antes de criar o contato. Se o chat já existir, retorna o ID do mesmo. 
-                    Chat.createIfNotExists(this._user.email, contact.email).then(chat =>{ // quando tiver os dados do chat, cria o contato
+                    Chat.createIfNotExists(this._user.email, contact.email).then((chat) =>{ // quando tiver os dados do chat, cria o contato
 
                         contact.chatId = chat.id; // esse "chat.id" seria a referencia do doc do firebase, o valor dele está sendo atribuído ao - ainda nao criado - chatId do contato. "chat" de chat.id é o parametro da funçao.
 
@@ -487,7 +504,7 @@ export class WhatsAppController{ // vai exportar essa classe pro app.js
                         this._user.addContact(contact).then(()=>{ // recebe a promise do return de addContact
 
                             this.el.btnClosePanelAddContact.click();
-                            console.info('Contato foi adicionado.')
+                            console.info('Contato foi adicionado!');
     
                         });
 
@@ -536,11 +553,9 @@ export class WhatsAppController{ // vai exportar essa classe pro app.js
 
         this.el.inputPhoto.on('change', (e)=>{
 
-            console.log(this.el.inputPhoto.files);
-
-            [...this.el.inputPhoto.files].forEach(file=>{
-
-                console.log(file);
+            [...this.el.inputPhoto.files].forEach(file=>{   
+            
+                Message.sendImage(this._activeContact.chatId, this._user.email, file)
 
             });
 
