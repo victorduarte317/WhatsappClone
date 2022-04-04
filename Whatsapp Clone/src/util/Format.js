@@ -9,7 +9,7 @@ export class Format {
 
         let div = document.createElement('div')
 
-        div.innerHTML = `<div data-${text}='id'></div>`;
+        div.innerHTML = `<div data-${text}="id"></div>`;
 
         // retornando o dataset com um método nativo do javaScript.
         // Object.keys() vai percorrer um objeto determinado e retornar um array de todas as chaves dele.
@@ -36,10 +36,10 @@ export class Format {
     
     static dateToTime(date, locale = 'pt-br') {
 
-        return date.toLocaleTimeString((this._locale), {
+        return date.toLocaleTimeString(locale, {
 
-            hours: '2-digit',
-            minutes: '2-digit'
+            hour: '2-digit',
+            minute: '2-digit'
 
         });
     }
