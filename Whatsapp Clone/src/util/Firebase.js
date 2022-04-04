@@ -12,7 +12,7 @@ export class Firebase {
         
             projectId: "whatsapp-clone-fc85a",
         
-            storageBucket: "whatsapp-clone-fc85a.appspot.com",
+            storageBucket: "gs://whatsapp-clone-fc85a.appspot.com",
         
             messagingSenderId: "326937774207",
         
