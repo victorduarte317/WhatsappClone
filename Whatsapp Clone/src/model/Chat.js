@@ -2,14 +2,16 @@ import { Model } from "./Model";
 import { Firebase } from "../util/Firebase";
 
 export class Chat extends Model {
-    super();
+    constructor() {
+        super();
+    }
 
     // getters e setters de usuarios e do timestamp
     get users() { this._data.users; }
     set users(value) { this._data.users = value; }
 
-    get timestamp() { this._data.timestamp; }
-    set timestamp(value) { this._data.timestamp = value; }
+    get timeStamp() { this._data.timeStamp; }
+    set timeStamp(value) { this._data.timeStamp = value; }
 
     // método estático pra retornar a coleção dos chats do firebase
     static getRef() {
@@ -29,7 +31,7 @@ export class Chat extends Model {
 
             // add vai gerar o id automaticamente dentro da coleção
             Chat.getRef().add({
-                user,
+                users,
                 timestamp: new Date()
 
                 // retorna o then caso consiga, e o catch caso dê errado.
@@ -41,11 +43,11 @@ export class Chat extends Model {
                     s(chat); //se der certo, retorna o chat
 
                 }).catch((err)=>{
-                    f(error);
+                    f(err);
                 });
 
             }).catch((err)=>{
-                f(error);
+                f(err   );
             }); 
 
         });
@@ -59,17 +61,15 @@ export class Chat extends Model {
         .where(btoa(meEmail), '==', true)
         .where(btoa(contactEmail), '==', true)
         .get();
-
         // o where aqui vai fazer a busca dos dois ids em base64, encontrando o chat.
-
     }
 
     // passa a informação do email do usuário e email do contato pra pegar qual o chat que tem esses dois usuários como "users".
-    static createIfNotExists(meEmail, contact) {
+    static createIfNotExists(meEmail, contactEmail) {
 
         return new Promise((s, f)=>{
 
-            Chat.find(meEmail, contactEmail).then((chats) =>{ // método que vai procurar se a conversa existe, buscando pelos dois emails, tratando chats como uma coleçao de informaçoes
+            Chat.find(meEmail, contactEmail).then((chats) => { // método que vai procurar se a conversa existe, buscando pelos dois emails, tratando chats como uma coleçao de informaçoes
 
                 if (chats.empty) {
 
