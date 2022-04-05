@@ -23,8 +23,23 @@ export class Message extends Model {
     get timeStamp() { return this._data.timeStamp; }
     set timeStamp(value) { return this._data.timeStamp = value; }
 
-    get status() { return this._data.status; }
-    set status(value) { return this._data.status = value; }
+    get preview() { return this._data.preview; }
+    set preview(value) { return this._data.preview = value; }
+
+    get info() { return this._data.info; }
+    set info(value) { return this._data.info = value; }
+
+    get fileType() { return this._data.fileType; }
+    set fileType(value) { return this._data.fileType = value; }
+
+    get filename() { return this._data.filename; }
+    set filename(value) { return this._data.filename = value; }
+
+    get size() { return this._data.size; }
+    set size(value) { return this._data.size = value; }
+
+    get from() { return this._data.from; }
+    set from(value) { return this._data.from = value; }
 
     // pega o elemento da view pra tratar o tipo
     getViewElement(me = true) {
@@ -134,13 +149,13 @@ export class Message extends Model {
                     <div class="_3_7SH _1ZPgd">
                         <div class="_1fnMt _2CORf">
                             <a class="_1vKRe" href="#">
-                                <div class="_2jTyA" style="background-image: url()"></div>
+                                <div class="_2jTyA" style="background-image: url(${this.preview})"></div>
                                 <div class="_12xX7">
                                     <div class="_3eW69">
                                         <div class="JdzFp message-file-icon icon-doc-pdf"></div>
                                     </div>
                                     <div class="nxILt">
-                                        <span dir="auto" class="message-filename">Arquivo.pdf</span>
+                                        <span dir="auto" class="message-filename">${this.filename}</span>
                                     </div>
                                     <div class="_17viz">
                                         <span data-icon="audio-download" class="message-file-download">
@@ -158,9 +173,9 @@ export class Message extends Model {
                                 </div>
                             </a>
                             <div class="_3cMIj">
-                                <span class="PyPig message-file-info">32 páginas</span>
-                                <span class="PyPig message-file-type">PDF</span>
-                                <span class="PyPig message-file-size">4 MB</span>
+                                <span class="PyPig message-file-info">${this.info}</span>
+                                <span class="PyPig message-file-type">${this.fileType}</span>
+                                <span class="PyPig message-file-size">${this.size}</span>
                             </div>
                             <div class="_3Lj_s">
                                 <div class="_1DZAH" role="button">
@@ -294,36 +309,84 @@ export class Message extends Model {
         return div;
     }
 
+    static upload(file, from) {
+
+        return new Promise ((s, f)=>{
+
+        //upload do arquivo pro firebase storage
+        // referencia é o caminho do arquivo dentro do storage
+        // o put vai retornar um uploadTask
+        let uploadTask = Firebase.hd().ref(from).child(Date.now() + '_' + file.name).put(file);
+
+        // pra checar o upload do arquivo. Daria pra fazer uma barrinha carregando igual o projeto do DropBox
+        uploadTask.on('state_changed', e => {
+
+            // console.info('upload', e);
+
+        }, err => {
+            f(err)
+        }, () => { // se der certo, quando terminar de fazer o upload
+
+            uploadTask.snapshot.ref.getDownloadURL().then(downloadURL => { // passa a URL da imagem no conteudo
+                
+                s(uploadTask.snapshot);
+            });
+        
+        });
+
+    });
+}
+
+    static sendDocument(chatId, from, file, filePreview) {
+
+        Message.send(chatId, from, 'document', '').then((msgRef)=>{
+
+            Message.upload(file, from).then((snapshot)=>{
+
+                let downloadFile = snapshot.donwloadURL;
+
+                Message.upload(filePreview, from).then((snapshot2)=>{ 
+
+                    let downloadPreview = snapshot2.downloadURL;
+
+                    msgRef.set({
+                        content: downloadFile, 
+                        preview: downloadPreview,
+                        filename: file.name,
+                        size: file.size, 
+                        fileType: file.type,
+                        size: 'sent'
+                    
+                    }, {
+                        merge: true
+                    });
+
+
+    
+                });
+
+            }); 
+
+        });
+
+    }
+
     static sendImage(chatId, from, file) 
     {
         // como vai demorar um tempo pro upload ocorrer, vale a pena criar uma promise
         return new Promise((s, f) => {
- 
-            //upload do arquivo pro firebase storage
-            // referencia é o caminho do arquivo dentro do storage
-            // o put vai retornar um uploadTask
-            let uploadTask = Firebase.hd().ref(from).child(Date.now() + '_' + file.name).put(file);
- 
-            // pra checar o upload do arquivo. Daria pra fazer uma barrinha carregando igual o projeto do DropBox
-            uploadTask.on('state_changed', e => {
- 
-                // console.info('upload', e);
- 
-            }, err => {
-                console.error(err)
-            }, () => { // se der certo, quando terminar de fazer o upload
- 
-                uploadTask.snapshot.ref.getDownloadURL().then(downloadURL => { // passa a URL da imagem no conteudo
-                    Message.send( // precisa receber os parametros definidos no metodo send: chatId, from, type, content
-                        chatId, 
-                        from, 
-                        'image', 
-                        downloadURL                    
-                    ).then(() => {
-                        s();
-                    });
+
+            Message.upload(file, from).then((snapshot)=>{
+
+                Message.send( // precisa receber os parametros definidos no metodo send: chatId, from, type, content
+                    chatId, 
+                    from, 
+                    'image', 
+                    snapshot.downloadURL                    
+                ).then(() => {
+                    s();
                 });
-         
+
             });
  
         });       
@@ -337,22 +400,24 @@ export class Message extends Model {
                 Message.getRef(chatId).add({
                 content, 
                 timeStamp: new Date(), 
-                status: 'wait',
+                size: 'wait',
                 type, 
                 from
             }).then((result)=>{ // dentro de result tem a referencia do documento
 
                 // dentro de result tem o documento pai e é feita a busca pra encontrar o id que foi inserido recentemente
                 // ou seja, dentro de 'messages', qual é a mensagem que acabou de ser inserida
-                // set pra alterar o status da mensagem
-                // basicamente esse bloco todo envia a mensagem, e se foi enviada, atualiza o status pra sent
-                result.parent.doc(result.id).set({
-                    status: 'sent' // se fosse só isso, os outros dados - como email - seriam perdidos. Então, é necessário um merge      
+                // set pra alterar o size da mensagem
+                // basicamente esse bloco todo envia a mensagem, e se foi enviada, atualiza o size pra sent
+
+                let docRef = result.parent.doc(result.id)
+                docRef.set({
+                    size: 'sent' // se fosse só isso, os outros dados - como email - seriam perdidos. Então, é necessário um merge      
                 }, {
-                    merge: true // vai dar merge do novo status com os que já existiam
+                    merge: true // vai dar merge do novo size com os que já existiam
                 }).then(()=>{
 
-                    s(); // resolve a promessa principal, passando success
+                    s(docRef); // resolve a promessa principal, passando success
 
                 });
 
@@ -370,15 +435,15 @@ export class Message extends Model {
 
     }
 
-    // método pra pegar o status de recebimento da imagem
+    // método pra pegar o size de recebimento da imagem
 
     getStatusViewElement(){
 
         let div = document.createElement('div');
 
-        div.className = 'message-status';
+        div.className = 'message-size';
 
-        switch (this.status) {
+        switch (this.size) {
 
             case 'wait':
                 div.innerHTML = `

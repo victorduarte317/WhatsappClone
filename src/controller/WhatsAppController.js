@@ -6,6 +6,7 @@ import {Firebase} from '../util/Firebase';
 import { User } from '../model/User';
 import { Chat } from '../model/Chat';
 import { Message } from '../model/Message';
+import { Base64 } from "../util/Base64";
 
 
 export class WhatsAppController{ // vai exportar essa classe pro app.js 
@@ -727,7 +728,30 @@ export class WhatsAppController{ // vai exportar essa classe pro app.js
 
         this.el.btnSendDocument.on('click', (e)=>{
 
-            console.log('document sent');
+            let file = this.el.inputDocument.files[0];
+            let base64 = this.el.imagePanelDocumentPreview.src;
+
+            if (file.type === 'application/pdf') {
+
+                Base64.toFile(base64).then((filePreview)=>{
+
+                Message.sendDocument(this._activeContact.chatId, 
+                    this._user.email, 
+                    file, 
+                    filePreview,
+                    this.el.infoPanelDocumentPreview.innerHTML);
+                });
+
+            } else {
+
+                Message.sendDocument(this._activeContact.chatId, 
+                    this._user.email, 
+                    file
+                );
+
+            }
+
+            this.el.btnClosePanelDocumentPreview.click();''
 
         });
 
