@@ -85,20 +85,34 @@ export class MicrophoneController extends ClassEvent {
                 // concatenaçao via template string
                 let filename = `rec${Date.now()}.webm`;
 
-                // esse arquivo precisar ser binário pra ser interpretado
-                // então é preciso utilizar o blob (binary large object)
-                // o blob vai compactar todas as seções gravadas e transformar em um arquivo com informações (tipo, etc)
-                // e só então o recordedChunks vai ser lido por file e interpretado como um arquivo.
+                let audioContext = new AudioContext();
 
-                // transformando o recordedChunks em um arquivo
-                let file = new File([blob], filename, { // tudo dentro dessa chave sao parametros
-                    type: this._mimeType,
-                    lastModified: Date.now()
+                let reader = new FileReader();
+
+                reader.onload = (e)=>{
+
+                    audioContext.decodeAudioData(reader.result).then((decode)=>{
+
+                        // esse arquivo precisar ser binário pra ser interpretado
+                        // então é preciso utilizar o blob (binary large object)
+                        // o blob vai compactar todas as seções gravadas e transformar em um arquivo com informações (tipo, etc)
+                        // e só então o recordedChunks vai ser lido por file e interpretado como um arquivo.
+
+                        // transformando o recordedChunks em um arquivo
+                        let file = new File([blob], filename, { // tudo dentro dessa chave sao parametros
+                        type: this._mimeType,
+                        lastModified: Date.now()
+
+                    });
+
+                    this.trigger('recorder', file, decode);
+
+                    
                 });
 
-                console.log('file', file);
+            }
 
-
+                reader.readAsArrayBuffer(blob);
 
                 // usando FileReader pra ouvir o áudio gerado
                 /* let reader = new FileReader();

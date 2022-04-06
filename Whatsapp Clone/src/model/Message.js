@@ -1,6 +1,7 @@
 import { Firebase } from "../util/Firebase";
 import { Model } from "./Model";
 import { Format } from "../util/Format";
+import { Upload } from "../util/Upload";
 
 export class Message extends Model {
 
@@ -44,11 +45,18 @@ export class Message extends Model {
     get status(){return this._data.status}
     set status(value){this._data.status = value}
 
+    get photo(){return this._data.photo}
+    set photo(value){this._data.photo = value}
+
+    get duration(){return this._data.duration}
+    set duration(value){this._data.duration = value}
+
     // pega o elemento da view pra tratar o tipo
     getViewElement(me = true) {
 
         let div = document.createElement('div');
 
+        div.id= `_${this.id}`;
         div.className = 'message';
 
         switch (this.type) {
@@ -77,7 +85,7 @@ export class Message extends Model {
                                         </div>
                                     </div>
                                     <div class="_1lC8v">
-                                        <div dir="ltr" class="_3gkvk selectable-text invisible-space copyable-text">Nome do Contato Anexado</div>
+                                        <div dir="ltr" class="_3gkvk selectable-text invisible-space copyable-text">${this.content.name}</div>
                                     </div>
                                     <div class="_3a5-b">
                                         <div class="_1DZAH" role="button">
@@ -91,6 +99,14 @@ export class Message extends Model {
                             </div>
                         </div>                         
                     `;
+
+                    if (this.content.photo) {
+                        let img = div.querySelector('.photo-contact-sended');
+                        img.src = this.content.photo;
+
+                        img.show();
+                    }
+                    
                 break;
 
             case 'image':
@@ -278,11 +294,87 @@ export class Message extends Model {
         
                 `;
 
+                if (this.photo) {
+
+                    let img = div.querySelector('.message-photo');
+                    img.src = this.photo
+                    img.show();
+                }
+
+                let audioEl = div.querySelector('audio');
+                let loadEl = div.querySelector('.audio-load');
+                let btnPlay = div.querySelector('.audio-play');
+                let btnStop = div.querySelector('.audio-stop');
+                let inputRange = div.querySelector('[type=range]');
+                let audioDuration = div.querySelector('.message-audio-duration')
+
+                audioEl.onloadeddata = (e) =>{
+
+                    loadEl.hide();
+                    btnPlay.show();
+
+                };
+
+                audioEl.onplay = (e) =>{
+                    
+                    btnPlay.hide();
+                    btnPause.show();
+                }
+
+                audioEl.onpause = (e) =>{
+                    
+                    audioDuration.innerHTML = Format.toTime(this.duration * 1000);
+                    btnPlay.show();
+                    btnPause.hide();
+                }
+
+
+                audioEl.onended = (e) => {
+
+                    audioEl.currentTime = 0;
+                }
+
+                audioEl.ontimeupdate = (e) => {
+
+                    btnPlay.hide();
+                    btnStop.hide();
+
+                    audioDuration.innerHTML = Format.toTime(audioEl.currentTime * 1000);
+                    inputRange.value = (audioEl.currentTime * 100) / this.duration;
+
+                    if (audioEl.paused) {
+                        btnPlay.show();
+                    } else {
+                        btnPause.show();
+                    }
+
+                }
+
+                btnPlay.on('click', (e)=>{
+
+                    audioEl.play();
+
+                });
+
+                btnPause.on('click', (e)=>{
+
+                    audioEl.pause();
+
+                });
+
+                inputRange.on('change', (e)=>{
+
+                    audioEl.currentTime =  (inputRange.value * this.duration) / 100;
+                    
+
+
+                });
+
                 break;
 
             default:
                 div.innerHTML = `
-                    <div class="font-style _3DFk6 tail" id="_${this.id}">
+                    <div class="font-style _3DFk6 tail">
                         <span class="tail-container"></span>
                         <span class="tail-container highlight"></span>
                         <div class="Tkt2p">
@@ -320,31 +412,40 @@ export class Message extends Model {
 
     static upload(file, from) {
 
-        return new Promise ((s, f)=>{
+        return Upload.send(file, from);
+    }
 
-        //upload do arquivo pro firebase storage
-        // referencia é o caminho do arquivo dentro do storage
-        // o put vai retornar um uploadTask
-        let uploadTask = Firebase.hd().ref(from).child(Date.now() + '_' + file.name).put(file);
+    static sendContact(chatId, from, contact) {
 
-        // pra checar o upload do arquivo. Daria pra fazer uma barrinha carregando igual o projeto do DropBox
-        uploadTask.on('state_changed', e => {
+        return Message.send(chatId, from, 'contact', contact);
+    }
 
-            // console.info('upload', e);
+    static sendAudio(chatId, from, file, metadata, photo) {
 
-        }, err => {
-            f(err)
-        }, () => { // se der certo, quando terminar de fazer o upload
+        return Message.send(chatId, from, 'audio', '').then((msgRef)=>{
 
-            uploadTask.snapshot.ref.getDownloadURL().then(downloadURL => { // passa a URL da imagem no conteudo
-                
-                s(downloadURL);
+            Message.upload(file, from).then((snapshot)=>{
+
+                let downloadFile = snapshot.downloadURL;
+
+                msgRef.set({
+                    content: downloadFile, 
+                    size: file.size, 
+                    fileType: file.type, 
+                    status: 'sent',
+                    photo,
+                    duration: metadata.duration
+                }, {
+                    merge: true
+                });
+
             });
-        
+
         });
 
-    });
-}
+    }
+
+
 
     static sendDocument(chatId, from, file, filePreview, info) {
 
@@ -424,7 +525,7 @@ export class Message extends Model {
                 docRef.set({
                     status: 'sent' // se fosse só isso, os outros dados - como email - seriam perdidos. Então, é necessário um merge      
                 }, {
-                    merge: true // vai dar merge do novo size com os que já existiam
+                    merge: true // vai dar merge do novo status com os que já existiam
                 }).then(()=>{
 
                     s(docRef); // resolve a promessa principal, passando success

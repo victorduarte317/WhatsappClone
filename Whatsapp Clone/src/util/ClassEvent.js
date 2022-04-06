@@ -1,15 +1,20 @@
+// classe pra tratamento de eventos
 export class ClassEvent {
 
     constructor(){
-
+        // eventos recebem array vazio
         this._events = {};
 
     }
-
+    // cria o metodo on passando o nome do evento (sempre em primeiro) e a funçao
     on (eventName, fn){
 
+        // se nao tiver um eventName, vai receber um array
         if (!this._events[eventName]) this._events[eventName] = new Array();
 
+        // e o push da funçao. O intuito é que, se tiver mais de uma função ao mesmo tempo, por exemplo
+        // em uma é executado console.log(a) e, em outra, console.log(b). Elas não podem se sobrescrever.
+        // aqui, a função ta sendo adicionada ao array
         this._events[eventName].push(fn);
 
     }
