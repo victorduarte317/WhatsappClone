@@ -7,6 +7,8 @@ import { User } from '../model/User';
 import { Chat } from '../model/Chat';
 import { Message } from '../model/Message';
 import { Base64 } from "../util/Base64";
+import { ContactsController } from './ContactsController';
+import { Upload } from '../util/Upload';
 
 
 export class WhatsAppController{ // vai exportar essa classe pro app.js 
@@ -226,6 +228,9 @@ export class WhatsAppController{ // vai exportar essa classe pro app.js
                 // verifica se a mensagem verificou do meu email
                 let me = (data.from === this._user.email);
 
+                // passa o true pro método
+                let view = message.getViewElement(me);
+
                 // se não tiver uma mensagem no painel
                 // o underline aqui é utilizado já que não se pode ter números como começo de ID.
                 // e como o firebase gera IDs que podem começar com número, isso já é evitado pelo underline.
@@ -242,16 +247,15 @@ export class WhatsAppController{ // vai exportar essa classe pro app.js
                         });
 
                     }
-                    // passa o true pro método
-                    let view = message.getViewElement(me);
-                    // e passa o elemento pra cá, exibindo a mensagem na tela
+                    
+                    // passa o elemento pra cá, exibindo a mensagem na tela
                     this.el.panelMessagesContainer.appendChild(view);
 
                 } else {
 
-                    let view = message.getViewElement(me);
+                    let parent = this.el.panelMessagesContainer.querySelector('#_' + data.id).parentNode;
 
-                    this.el.panelMessagesContainer.querySelector('#_' + data.id).innerHTML = view.innerHTML;    
+                    parent.replaceChild(view, this.el.panelMessagesContainer.querySelector('#_' + data.id));
 
                 }
                 
@@ -264,6 +268,31 @@ export class WhatsAppController{ // vai exportar essa classe pro app.js
                     // vai pegar o status atual da mensagem pelo querySelector e alterar com o innerHTML
                     // porem, o innerHTML espera uma string e o getStatus vai retornar objeto junto
                     // então, o outerHTML é utilizado pra pegar os elementos além das strings
+                }
+
+                if (message.type === 'contact') {
+
+                    view.querySelector('.btn-message-send').on('click', (e)=>{
+
+                        Chat.createIfNotExists(this._user.email, message.contact.email).then((chat) =>{ // quando tiver os dados do chat, cria o contato
+
+                            let contact = new User(message.content.email);
+
+                            contact.on('datachange', (data) =>{
+                                
+                                contact.chatId = chat.id; // esse "chat.id" seria a referencia do doc do firebase, o valor dele está sendo atribuído ao - ainda nao criado - chatId do contato. "chat" de chat.id é o parametro da funçao.
+    
+                                this._user.addContact(contact);
+
+                                this._user.chatId = chat.id; // como a conversa existe de A pra B, também existe de B pra A.
+    
+                                contact.addContact(this._user); // vai fazer o merge das informações, se o contato não existir vai ser adicionado, se existir vai adicionar o chatID.
+    
+                                this.setActiveChat(contact);
+                            })
+                        }); 
+
+                    });
                 }
             });
 
@@ -458,6 +487,26 @@ export class WhatsAppController{ // vai exportar essa classe pro app.js
 
         });
 
+        this.el.inputProfilePhoto.on('change', (e)=>{
+
+            if (this.el.inputProfilePhoto.files.length > 0) {
+
+                let file = this.el.inputProfilePhoto.files[0];
+                
+                Upload.send(file, this._user.email).then((snapshot)=>{
+
+                    this._user.photo = snapshot.downloadURL;
+                    this._user.save().then(()=>{
+                        
+                        this.el.btnClosePanelEditProfile.click();
+
+                    });
+
+                });
+            }
+
+        });
+
         // keypress = quando digitar
         this.el.inputNamePanelEditProfile.on('keypress', (e) =>{
 
@@ -502,24 +551,12 @@ export class WhatsAppController{ // vai exportar essa classe pro app.js
                 // se recuperou um data.name, já validou o retorno do usuario
                 if (data.name) {
 
-                    // cria o chat antes de criar o contato. Se o chat já existir, retorna o ID do mesmo. 
-                    Chat.createIfNotExists(this._user.email, contact.email).then((chat) =>{ // quando tiver os dados do chat, cria o contato
+                    this._user.addContact(contact).then(()=>{
 
-                        contact.chatId = chat.id; // esse "chat.id" seria a referencia do doc do firebase, o valor dele está sendo atribuído ao - ainda nao criado - chatId do contato. "chat" de chat.id é o parametro da funçao.
+                        this.el.btnClosePanelAddContact.click();
+                        console.info('Contato adicionado!');
 
-                        this._user.chatId = chat.id; // como a conversa existe de A pra B, também existe de B pra A.
-
-                        contact.addContact(this._user); // vai fazer o merge das informações, se o contato não existir vai ser adicionado, se existir vai adicionar o chatID.
-
-                        this._user.addContact(contact).then(()=>{ // recebe a promise do return de addContact
-
-                            this.el.btnClosePanelAddContact.click();
-                            console.info('Contato foi adicionado!');
-    
-                        });
-
-
-                    }); 
+                    })
 
                     
                 } else {
@@ -770,13 +807,25 @@ export class WhatsAppController{ // vai exportar essa classe pro app.js
 
         this.el.btnAttachContact.on('click', (e)=>{
 
-            this.el.modalContacts.show();
+            this._contactsController = new ContactsController(this.el.modalContacts, this._user);
 
+            this._contactsController.on('select', contact =>{
+
+                Message.sendContact(
+                    this._activeContact.chatId,
+                    this._user.email,
+                    contact
+                );
+
+            });
+
+            this._contactsController.open();
         });
 
         this.el.btnCloseModalContacts.on('click', (e)=>{
 
-            this.el.modalContacts.hide();   
+            this._contactsController.close();
+
         }); 
 
         this.el.btnSendMicrophone.on('click', (e)=>{
@@ -812,6 +861,20 @@ export class WhatsAppController{ // vai exportar essa classe pro app.js
         });
 
         this.el.btnFinishMicrophone.on('click', (e)=>{
+
+            this._microphoneController.on('recorded', (file, metadata)=>{
+
+                Message.sendAudio(
+
+                    this._activeContact.chatId,
+                    this._user.email, 
+                    file,
+                    metadata,
+                    this._user.photo
+
+                );
+
+            });
 
             this._microphoneController.stopRecorder();
             this.defaultMicBar();  
