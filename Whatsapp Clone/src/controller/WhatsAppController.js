@@ -6,6 +6,7 @@ import {Firebase} from '../util/Firebase';
 import { User } from '../model/User';
 import { Chat } from '../model/Chat';
 import { Message } from '../model/Message';
+import { Base64 } from "../util/Base64";
 
 
 export class WhatsAppController{ // vai exportar essa classe pro app.js 
@@ -246,7 +247,16 @@ export class WhatsAppController{ // vai exportar essa classe pro app.js
                     // e passa o elemento pra cá, exibindo a mensagem na tela
                     this.el.panelMessagesContainer.appendChild(view);
 
-                } else if (me){ // tratando o caso da imagem ja estar na tela e receber a atualizaçao de status
+                } else {
+
+                    let view = message.getViewElement(me);
+
+                    this.el.panelMessagesContainer.querySelector('#_' + data.id).innerHTML = view.innerHTML;    
+
+                }
+                
+                
+                if (this.el.panelMessagesContainer.querySelector('#_' + data.id) && me){ // tratando o caso da imagem ja estar na tela e receber a atualizaçao de status
 
                     let msgEl = this.el.panelMessagesContainer.querySelector('#_' + data.id); // pega a mensagem que ta na tela
 
@@ -606,9 +616,58 @@ export class WhatsAppController{ // vai exportar essa classe pro app.js
 
         this.el.btnSendPicture.on('click', (e)=>{
 
-            console.log(this.el.pictureCamera.src);
+            this.el.btnSendPicture.disabled = true;
+
+            let regex = /^data:(.+);base64,(.*)$/  // expressão regular. Começa em ^, termina em $. Ou seja, começa em image/png, termina em base64
+            // vai procurar essa expressao dentro do regex
+
+            let result = this.el.pictureCamera.src.match(regex); // result vai fazer a busca por meio do match, que vai procurar o regex.
+
+            let mimeType = result[1]; // o mimeType vai pegar o tipo do arquivo, image/png
+
+            let ext = mimeType.split('/')[1] // a extensão vai dar split no mimetype e pegar só "png"
+
+            let filename = `camera${Date.now()}.${ext}`; // filename vai pegar a data de agora
+
+            let picture = new Image();
+            picture.src = this.el.pictureCamera.src;
+            picture.onload = (e)=>{
+
+                let canvas = document.createElement('canvas');
+                let context = canvas.getContext('2d');
+
+                canvas.width = picture.width;
+                canvas.height = picture.height;
+
+                context.translate(picture.width, 0);
+                context.scale(-1, 1);
+
+                context.drawImage(picture, 0, 0, canvas.width, canvas.height);
+
+                fetch(canvas.toDataURL(mimeType))
+
+                .then(res => { return res.arrayBuffer(); })
+                .then (buffer => { return new File([buffer], filename, { type: mimeType }); })
+                .then (file =>{
+                    Message.sendImage(this._activeContact.chatId, this._user.email, file);
+
+                    this.el.btnSendPicture.disabled = false;
+
+                    this.closeAllMainPanels();
+                    this._camera.stop();
+                    this.el.btnReshootPanelCamera.hide();
+                    this.el.pictureCamera.hide();
+                    this.el.videoCamera.show();
+                    this.el.containerSendPicture.hide();
+                    this.el.containerTakePicture.show();   
+                    this.el.panelMessagesContainer.show();
+
+                });
+
+            }
 
         });
+
 
         this.el.btnAttachDocument.on('click', (e)=>{
 
@@ -678,7 +737,34 @@ export class WhatsAppController{ // vai exportar essa classe pro app.js
 
         this.el.btnSendDocument.on('click', (e)=>{
 
-            console.log('document sent');
+            let file = this.el.inputDocument.files[0];
+            let base64 = this.el.imgPanelDocumentPreview.src;
+
+            if (file.type === 'application/pdf') {
+
+                Base64.toFile(base64).then(filePreview=>{
+
+                Message.sendDocument(
+                    this._activeContact.chatId, 
+                    this._user.email, 
+                    file, 
+                    filePreview,
+                    this.el.infoPanelDocumentPreview.innerHTML);
+                });
+
+                } else {
+
+                    Message.sendDocument(
+                        this._activeContact.chatId, 
+                        this._user.email, 
+                        file
+                    );
+    
+                };
+
+             
+
+            this.el.btnClosePanelDocumentPreview.click();''
 
         });
 
