@@ -7,7 +7,7 @@ export class DocumentPreviewController {
 
     constructor(file){
         this._file = file;
-    } // fecha o construtor
+    } // fecha o constarustor
 
     getPreviewData(){
 
