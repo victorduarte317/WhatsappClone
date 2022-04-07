@@ -14,11 +14,61 @@ import { Upload } from '../util/Upload';
 export class WhatsAppController{ // vai exportar essa classe pro app.js 
 
     constructor() {
+        this._active = true;
         this._firebase = new Firebase();
         this.initAuth()
         this.elementsPrototype();
         this.loadElements();
         this.initEvents();
+        this.checkNotifications();
+    }
+
+    checkNotifications() {
+        // verifica o suporte do navegador
+        if (typeof Notification === 'function') {
+
+            // checa a permissão, se não for garantida, mostra um alerta informando ele sobre a situaçao
+            if (Notification.permission !== 'granted') {
+                this.el.alertNotificationPermission.show();
+            } else {
+                this.el.alertNotificationPermission.hide();
+            }
+
+            this.el.alertNotificationPermission.on('click', (e) =>{
+
+                Notification.requestPermission((permission) =>{
+
+                    if (permission === 'granted' && !this._active) {
+                        this.el.alertNotificationPermission.hide();
+                        console.info('Notificações permitidas!');
+                    }
+
+                });
+
+            });
+        }
+    }
+
+    notification(data) { 
+
+        if (Notification.permission === 'granted') {
+
+            let n = new Notification(this._activeContact.name, {
+                icon: this._activeContact.photo,
+                body: data.content
+            });
+
+            let sound = new Audio('./audio/alert.mp3');
+            sound.currentTime = 0;
+            sound.play();
+
+            setTimeout(()=>{
+
+                if (n) n.close();
+
+            }, 3000);
+        }
+
     }
 
     // método pra iniciar a autenticação do firebase
@@ -205,6 +255,7 @@ export class WhatsAppController{ // vai exportar essa classe pro app.js
         // limpa o conteudo do painel de mensagens
         this.el.panelMessagesContainer.innerHTML = '';
 
+        let messagesReceived = [];
         // carregando a referencia da mensagem, ordenando os dados pela data em tempo real - com o onSnapshot, retornando docs.
 
         Message.getRef(this._activeContact.chatId).orderBy('timeStamp')
@@ -232,6 +283,14 @@ export class WhatsAppController{ // vai exportar essa classe pro app.js
 
                 // verifica se a mensagem verificou do meu email
                 let me = (data.from === this._user.email);
+
+                // se a mensagem ja estiver dentro do array, o filter vai retornar length > 0
+                if (!me && this._messagesReceived.filter(id => { return (id === data.id) }).length === 0) {
+
+                    this.notification(data);
+                    this._messagesReceived.push(data.id);
+
+                }
 
                 // passa o true pro método
                 let view = message.getViewElement(me);
@@ -435,6 +494,20 @@ export class WhatsAppController{ // vai exportar essa classe pro app.js
     } // fecha elementsPrototype
 
     initEvents() {
+
+        // quando ta focado
+        window.addEventListener('focus', (e)=>{
+            
+            this._active = true;
+
+        });
+
+        // quando perde o foco
+        window.addEventListener('blur', (e)=>{
+
+            this._active = false;
+
+        });
 
         // quando apertar a tecla
         this.el.inputSearchContacts.on('keyup', (e)=>{
@@ -1007,11 +1080,7 @@ export class WhatsAppController{ // vai exportar essa classe pro app.js
             });
 
         });
-
-
-
         
-
     } // fecha initEvents
 
     defaultMicBar() {
