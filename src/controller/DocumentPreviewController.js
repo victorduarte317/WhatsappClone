@@ -11,7 +11,7 @@ export class DocumentPreviewController {
 
     getPreviewData(){
 
-        return new Promise((s, f)=>{ // success e failure
+        return new Promise((s, f)=>{ // successs e failure
 
             let reader = new FileReader();
             switch(this._file.type) {
