@@ -1,16 +1,15 @@
 // classe pra tratamento de eventos
 export class ClassEvent {
 
-    constructor(){
+    constructor() {
         // eventos recebem array vazio
         this._events = {};
 
     }
     // cria o metodo on passando o nome do evento (sempre em primeiro) e a funçao
-    on (eventName, fn){
-
+    on(eventName, fn) {
         // se nao tiver um eventName, vai receber um array
-        if (!this._events[eventName]) this._events[eventName] = new Array();
+        if(!this._events[eventName]) this._events[eventName] = new Array();
 
         // e o push da funçao. O intuito é que, se tiver mais de uma função ao mesmo tempo, por exemplo
         // em uma é executado console.log(a) e, em outra, console.log(b). Elas não podem se sobrescrever.
@@ -19,18 +18,18 @@ export class ClassEvent {
 
     }
 
-    trigger(){
+    trigger() {
 
         // converte o metodo nativo arguments pra array
         let args = [...arguments];
-        let eventName = args.shift(); // tira o eventName - que é sempre o primeiro parametro - do array
+        let eventName = args.shift() // tira o eventName - que é sempre o primeiro parametro - do array
 
         args.push(new Event(eventName));
 
         // verifica se já é um array
-        if (this._events[eventName] instanceof Array) {
+        if(this._events[eventName] instanceof Array) {
 
-            this._events[eventName].forEach((fn)=>{
+            this._events[eventName].forEach(fn => {
 
                 // executa esse codigo
                 fn.apply(null, args);

@@ -422,9 +422,9 @@ export class Message extends Model {
 
     static sendAudio(chatId, from, file, metadata, photo) {
 
-        return Message.send(chatId, from, 'audio', '').then((msgRef)=>{
+        return Message.send(chatId, from, 'audio', '').then(msgRef => {
 
-            Message.upload(file, from).then((snapshot)=>{
+            Message.upload(file, from).then(snapshot => {
 
                 let downloadFile = snapshot.downloadURL;
 
@@ -505,14 +505,14 @@ export class Message extends Model {
 
     static send(chatId, from, type, content) { 
 
-        return new Promise ((s, f)=>{
-
+        return new Promise ((s, f) => {
                 // pega a referência do chatId da mensagem
                 Message.getRef(chatId).add({
-                from,
-                type,
+                content,
                 timeStamp: new Date(), 
-                status: 'wait', 
+                status: 'wait',
+                type,
+                from,   
 
             }).then((result) =>{ // dentro de result tem a referencia do documento
 
@@ -531,7 +531,7 @@ export class Message extends Model {
                     s(docRef); // resolve a promessa principal, passando success
 
                 }).catch((err)=>{
-                    f(err);
+                    f(err)
                 });
 
             });
@@ -543,9 +543,10 @@ export class Message extends Model {
     static getRef(chatId) {
 
         // construída a referência - todo o caminho do banco de dados - até as mensagens.
-        return Firebase.db().collection('chats')
+        return Firebase.db()
+        .collection('chats')
         .doc(chatId)
-        .collection('messages');
+        .collection('/messages');
 
     }
 

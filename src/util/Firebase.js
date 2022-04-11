@@ -7,18 +7,12 @@ export class Firebase {
         this._config = {
 
             apiKey: "AIzaSyDxyIXUvj6poJRgqJ5gVHmeLHVW-jw0BZQ",
-        
             authDomain: "whatsapp-clone-fc85a.firebaseapp.com",
-        
+            databaseURL: "https://whatsapp-clone-fc85a-default-rtdb.firebaseio.com",
             projectId: "whatsapp-clone-fc85a",
-        
-            storageBucket: "gs://whatsapp-clone-fc85a.appspot.com",
-        
+            storageBucket: "whatsapp-clone-fc85a.appspot.com",
             messagingSenderId: "326937774207",
-        
-            appId: "1:326937774207:web:e5d5ce9b2478a8ca96974a",
-        
-          };
+        };
 
         this.init();
     }
@@ -31,7 +25,9 @@ export class Firebase {
 
             firebase.initializeApp(this._config);
 
-            firebase.firestore().settings({})
+            firebase.firestore().settings({
+                timestampsInSnapshots: true
+            });
         
             window._initializedFirebase = true;
         }
@@ -50,14 +46,14 @@ export class Firebase {
 
     initAuth(){
 
-        return new Promise((s,f)=>{
+        return new Promise((s, f) => { 
 
             // cria o provider
             let provider = new firebase.auth.GoogleAuthProvider();
 
             // método gera um popup com o provider que o usuario pode utilizar.
             firebase.auth().signInWithPopup(provider)
-            .then(result =>{
+            .then((result) => {
 
                 // token vai armazenar os dados de um usuario autenticado. Usado como medida de segurança pra identificar e autenticar um usuario.
                 let token = result.credential.accessToken;
@@ -69,7 +65,7 @@ export class Firebase {
                 });
 
             })
-            .catch(err=> {
+            .catch(err => {
                 f(err);
             })
 

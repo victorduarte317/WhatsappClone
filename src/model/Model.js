@@ -1,8 +1,7 @@
 import { ClassEvent } from "../util/ClassEvent";
 
 export class Model extends ClassEvent{
-
-    constructor(){  
+    constructor() {  
         super();
         this._data = {}; // onde os modelos serão guardados
 

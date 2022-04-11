@@ -1,11 +1,11 @@
-import { Firebase } from './../util/Firebase'
+import { Firebase } from '../util/Firebase'
 import { Model } from './Model';
 
 export class User extends Model {
 
-    constructor(id){
+    constructor(id) {
         super(); // como é extensão de classEvent, é preciso chamar seu construtor
-        if (id) this.getById(id); // se for passado o id, carrega ele
+        if(id) this.getById(id); // se for passado o id, carrega ele
     }
 
     get name() { return this._data.name; }
@@ -26,21 +26,14 @@ export class User extends Model {
 
             // o email é o id
             // essa promessa retorna o documento salvo no firebase
-            User.findByEmail(id).onSnapshot((doc)=>{
-
-                // pegando os dados de dentro do documento e colocando no objeto
-                // varios dados podem vir em JSON e vários dados serão salvos em JSON
-                // então, é criada uma inteligência pra tratar dessa consulta e exportação de dados JSON
-                // essa inteligência vai ser constituída de uma classe intermediária pra tratar o descrito acima.
-                this.doc = doc;
-
+            User.findByEmail(id).onSnapshot(doc => {
                 this.fromJSON(doc.data());
 
                 s(doc);
 
-            });
+            })
         
-        });
+        })
     }
 
     // método que vai salvar os dados no firebase
@@ -84,15 +77,12 @@ export class User extends Model {
     }
 
     getContacts(filter = '') { // pode ser que receba um filtro ou nao, ou seja, pode ser que o usuario digite lá ou nao.
-        return new Promise((s, f)=>{
+        return new Promise((s, f) => { 
 
             // o snapshot pra manter a ouvidoria, o where pra verificação e filtro do nome
-            User.getContactsRef(this.email).where('name', '>=', filter).onSnapshot((docs)=>{
-
+            User.getContactsRef(this.email).where('name', '>=', filter).onSnapshot(docs => {
                 let contacts = []; // array dos contatos
-
-                docs.forEach((doc)=> { // forEach pra povoar os contatos
-
+                docs.forEach(doc => { // forEach pra povoar os contatos
                     let data = doc.data(); 
 
                     data.id = doc.id;
@@ -104,11 +94,10 @@ export class User extends Model {
                 // como a ouvidoria é mantida por snapshots, se algum método precisa
                 // do retorno de docs, trigger vai avisar sempre que houver uma troca de contatos
                 this.trigger('contactschange', docs);
-
                 s(contacts);
 
             });
 
-        })
+        });
     }
 }

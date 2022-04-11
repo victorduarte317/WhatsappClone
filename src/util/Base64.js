@@ -1,5 +1,5 @@
 export class Base64 {
-    static getMimeType(urlBase64) {
+    static getMimetype(urlBase64) {
 
         let regex = /^data:(.+);base64,(.*)$/  // expressão regular. Começa em ^, termina em $. Ou seja, começa em image/png, termina em base64
             // vai procurar essa expressao dentro do regex
@@ -11,7 +11,7 @@ export class Base64 {
 
     static toFile(urlBase64) {
 
-        let mimeType = Base64.getMimeType(urlBase64);
+        let mimeType = Base64.getMimetype(urlBase64);
 
         let ext = mimeType.split('/')[1] // a extensão vai dar split no mimetype e pegar só "png"
 
@@ -19,8 +19,7 @@ export class Base64 {
 
         return fetch(urlBase64)
             .then(res => { return res.arrayBuffer(); })
-                .then (buffer => { return new File([buffer], filename, { type: mimeType }); })
-            
+                .then(buffer => { return new File([buffer], filename, { type: mimeType }) });
     }
 
 }
